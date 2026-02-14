@@ -1,0 +1,30 @@
+# Dossiers générés par colcon (NE PAS VERSIONNER)
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+
+# ROS
+*.bag
+*.db3
+
+# Logs personnels
+*.log

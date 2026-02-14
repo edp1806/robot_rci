@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Robot RCI
+Comment=Lancer RViz et le panneau de contrôle du robot RCI
+Exec=konsole --hold -e bash -c "~/Bureau/robot_rci_ws/scripts/start_robot_rci.sh"
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;Education;Science;
+Path=~/Bureau/robot_rci_ws
+StartupNotify=true

@@ -1,0 +1,222 @@
+<?xml version="1.0"?>
+<robot name="robot_rci" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ========================================== -->
+  <!-- Paramètres géométriques du robot -->
+  <!-- ========================================== -->
+  <xacro:property name="a" value="1.85"/>
+  <xacro:property name="b" value="0.35"/>
+  <xacro:property name="base_height" value="0.2"/>
+  <xacro:property name="base_radius" value="0.15"/>
+  <xacro:property name="link_radius" value="0.05"/>
+
+  <!-- ========================================== -->
+  <!-- Base du robot - GRIS -->
+  <!-- ========================================== -->
+  <link name="world"/>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${base_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${base_radius}" length="${base_height}"/>
+      </geometry>
+      <material name="grey">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ========================================== -->
+  <!-- Joint 1 : Rotation autour de Z -->
+  <!-- ========================================== -->
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1_vertical"/>
+    <origin xyz="0 0 ${base_height}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-110*pi/180}" upper="${110*pi/180}" effort="50.0" velocity="2.0"/>
+  </joint>
+
+  <!-- Barre verticale - ROUGE -->
+  <link name="link1_vertical">
+    <visual>
+      <origin xyz="0 0 0.15" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="0.3"/>
+      </geometry>
+      <material name="red">
+        <color rgba="1.0 0.0 0.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Joint fixe pour connecter à la sphère joint1 -->
+  <joint name="vertical_to_sphere" type="fixed">
+    <parent link="link1_vertical"/>
+    <child link="sphere_joint1"/>
+    <origin xyz="0 0 0.3" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Sphère joint 1 - GRIS -->
+  <link name="sphere_joint1">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.07"/>
+      </geometry>
+      <material name="grey_joint">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Joint fixe pour connecter à la barre horizontale -->
+  <joint name="sphere_to_horizontal" type="fixed">
+    <parent link="sphere_joint1"/>
+    <child link="link1_horizontal"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Barre horizontale (entre base et joint2) - BLEU -->
+  <link name="link1_horizontal">
+    <visual>
+      <origin xyz="0 ${-a/2} 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${a}"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.0 0.0 1.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- ========================================== -->
+  <!-- Joint 2 : Rotation autour de X -->
+  <!-- ========================================== -->
+  <joint name="joint2" type="revolute">
+    <parent link="link1_horizontal"/>
+    <child link="link2_pivot"/>
+    <origin xyz="0 ${-a} 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0" upper="${80*pi/180}" effort="50.0" velocity="2.0"/>
+  </joint>
+
+  <!-- Sphère joint 2 - GRIS -->
+  <link name="link2_pivot">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.06"/>
+      </geometry>
+      <material name="grey_joint2">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- ========================================== -->
+  <!-- Joint 3 : Rotation autour de Z -->
+  <!-- ========================================== -->
+  <joint name="joint3" type="revolute">
+    <parent link="link2_pivot"/>
+    <child link="link3_outer"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0" upper="${2*pi}" effort="20.0" velocity="3.0"/>
+  </joint>
+
+  <!-- Barre qui tourne avec joint2 (tube extérieur) - VERT -->
+  <link name="link3_outer">
+    <visual>
+      <origin xyz="0 0 ${b/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius*0.9}" length="${b}"/>
+      </geometry>
+      <material name="green">
+        <color rgba="0.0 1.0 0.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Joint fixe pour le point d'ancrage du télescope -->
+  <joint name="outer_to_anchor" type="fixed">
+    <parent link="link3_outer"/>
+    <child link="link3_anchor"/>
+    <origin xyz="0 0 ${b}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Point d'ancrage invisible pour le télescope -->
+  <link name="link3_anchor"/>
+
+  <!-- ========================================== -->
+  <!-- Joint 4 : Translation le long de Z (télescope) -->
+  <!-- ========================================== -->
+  <joint name="joint4" type="prismatic">
+    <parent link="link3_anchor"/>
+    <child link="link4_inner_green"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0" upper="0.15" effort="30.0" velocity="0.5"/>
+  </joint>
+
+  <!-- Partie interne VERTE (reste dans le tube) -->
+  <link name="link4_inner_green">
+    <visual>
+      <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius*0.65}" length="0.15"/>
+      </geometry>
+      <material name="green_inner">
+        <color rgba="0.0 0.0 1.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Joint fixe vers la partie bleue -->
+  <joint name="green_to_blue" type="fixed">
+    <parent link="link4_inner_green"/>
+    <child link="link4_outer_blue"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Partie externe BLEUE (sort du tube) -->
+  <link name="link4_outer_blue">
+    <visual>
+      <origin xyz="0 0 0.075" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius*0.65}" length="0.15"/>
+      </geometry>
+      <material name="blue_telescopic">
+        <color rgba="0.0 0.0 1.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Joint fixe vers l'effecteur -->
+  <joint name="blue_to_ee" type="fixed">
+    <parent link="link4_outer_blue"/>
+    <child link="end_effector"/>
+    <origin xyz="0 0 0.15" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Effecteur (centre d'objet) - ROUGE -->
+  <link name="end_effector">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.04"/>
+      </geometry>
+      <material name="red_end">
+        <color rgba="1.0 0.0 0.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+</robot>
