@@ -422,4 +422,4 @@ Ce projet est sous licence MIT - voir le fichier LICENSE pour plus de détails.
 
 ⭐ Si ce projet vous aide, n'hésitez pas à lui donner une étoile ! ⭐
 Made with ❤️  at Polytech Lille
-</div> ```
+</div>
