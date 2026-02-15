@@ -79,25 +79,29 @@ sudo apt install -y \
     ros-jazzy-rviz2 \
     python3-pip \
     python3-tk
+```
 
-📥 Installation
-1. Cloner le repository
+**📥 Installation
+*1. Cloner le repository
 
-bash
+```bash
 cd ~/Bureau
 git clone https://github.com/edp1806/robot_rci.git robot_rci_ws
 cd robot_rci_ws
+```
 
-2. Compiler le workspace
+*2. Compiler le workspace
 
-bash
+```bash
 colcon build
 source install/setup.bash
+```
 
-3. Vérifier l'installation
+*3. Vérifier l'installation
 
-bash
+```bash
 ros2 pkg list | grep robot_rci
+```
 
 Vous devriez voir :
 
@@ -105,24 +109,24 @@ text
 robot_rci_description
 robot_rci_gui
 
-🚀 Utilisation
-Lancement complet (recommandé)
+***🚀 Utilisation
+**Lancement complet
 
-Terminal 1 : Lancer RViz et le modèle URDF
+*Terminal 1 : Lancer RViz et le modèle URDF
 
-bash
+```bash
 cd ~/Bureau/robot_rci_ws
 source install/setup.bash
 ros2 launch robot_rci_description display.launch.py
+```
+*Terminal 2 : Lancer l'interface de contrôle
 
-Terminal 2 : Lancer l'interface de contrôle
-
-bash
+```bash
 cd ~/Bureau/robot_rci_ws
 source install/setup.bash
 ros2 run robot_rci_gui control_panel
-
-Configuration RViz
+```
+*Configuration RViz
 
     Fixed Frame : world
 
@@ -134,20 +138,20 @@ Configuration RViz
 
         Trajectoire : Add → By topic → /trajectory_marker → Marker
 
-Utilisation de l'interface
-Contrôle articulaire (MGD)
+***Utilisation de l'interface
+**Contrôle articulaire (MGD)
 
     Déplacez les curseurs J1, J2, J3, J4
 
     La position cartésienne (X, Y, Z) se met à jour automatiquement
 
-Contrôle cartésien (MGI)
+**Contrôle cartésien (MGI)
 
     Déplacez les curseurs X, Y, Z
 
     Les angles articulaires se calculent automatiquement
 
-Affichage de l'espace de travail
+**Affichage de l'espace de travail
 
     Cliquez sur "WORKSPACE DISPLAY"
 
@@ -155,7 +159,7 @@ Affichage de l'espace de travail
 
     L'espace apparaît en bleu dans RViz
 
-Exécution de trajectoires
+**Exécution de trajectoires
 
     Sélectionnez un type : Circle, Square, Wave ou Lemniscate
 
@@ -165,13 +169,13 @@ Exécution de trajectoires
 
     Cliquez sur "STOP TRAJECTORY" pour arrêter
 
-Validation des modèles
+**Validation des modèles
 
     Cliquez sur "VALIDATE MGD ↔ MGI"
 
     Une fenêtre affiche l'erreur de précision (doit être < 1 μm)
 
-🦾 Architecture du robot
+***🦾 Architecture du robot
 Paramètres géométriques
 Paramètre	Valeur	Description
 a	1.85 m	Longueur du bras principal
@@ -187,8 +191,9 @@ J4	Prismatic	0 à 15	cm
 DOF (Degrés de liberté)
 
 Configuration : 3R + 1P (3 rotations + 1 translation)
-📐 Modèles cinématiques
-Modèle Géométrique Direct (MGD)
+
+***📐 Modèles cinématiques
+**Modèle Géométrique Direct (MGD)
 
 Calcul de la position cartésienne P(X, Y, Z) à partir des angles articulaires q = [q₁, q₂, q₃, q₄] :
 
@@ -199,7 +204,7 @@ X = (a + L_total × sin(q₂)) × sin(q₁)
 Y = -(a + L_total × sin(q₂)) × cos(q₁)
 Z = L_total × cos(q₂) + 0.5
 
-Modèle Géométrique Inverse (MGI)
+**Modèle Géométrique Inverse (MGI)
 
 Calcul des angles articulaires q à partir de la position P(X, Y, Z) :
 
@@ -210,13 +215,13 @@ q₃ = 0
 q₄ = √((√(X² + Y²) - a)² + (Z - 0.5)²) - b - 0.15
 
 Avec respect des limites articulaires via clipping.
-Validation
+**Validation
 
     Précision MGD ↔ MGI : < 1 μm (10⁻⁶ m)
 
     Méthode : Test de cohérence avec erreur euclidienne
 
-🎯 Trajectoires disponibles
+***🎯 Trajectoires disponibles
 Trajectoire	Description	Paramètres clés	Couleur
 ⭕ Cercle	Cercle horizontal	Rayon: 0.20 m, 60 points	🟢 Vert
 ⬛ Carré	Carré horizontal	Côté: 0.30 m, 4×15 points	🔵 Bleu
@@ -238,7 +243,7 @@ Fréquence de suivi
 
     Republication marqueurs : 1 Hz
 
-📁 Structure du projet
+**📁 Structure du projet
 
 text
 robot_rci_ws/
@@ -272,15 +277,15 @@ robot_rci_ws/
 ├── .gitignore
 └── README.md
 
-🔍 Dépannage
+***🔍 Dépannage
 Le robot revient à sa position initiale dans RViz
 
 ➡️ Normal ! Le timer ROS2 publie continuellement les joint_states pour maintenir la position. C'est un comportement attendu.
 Erreur No module named 'tkinter'
 
-bash
+'''bash
 sudo apt install python3-tk
-
+'''
 RViz ne montre pas le robot
 
     Vérifiez que robot_state_publisher tourne :
@@ -305,7 +310,7 @@ La trajectoire ne s'affiche pas dans RViz
 Dans RViz : Add → By topic → /trajectory_marker → Marker
 Erreur de compilation colcon build
 
-bash
+'''bash
 # Nettoyer le workspace
 rm -rf build/ install/ log/
 
@@ -314,10 +319,10 @@ source /opt/ros/jazzy/setup.bash
 
 # Recompiler
 colcon build
-
+'''
 Le GUI ne se lance pas
 
-bash
+'''bash
 # Vérifier l'installation du package
 ros2 pkg list | grep robot_rci_gui
 
@@ -325,9 +330,9 @@ ros2 pkg list | grep robot_rci_gui
 cd ~/Bureau/robot_rci_ws
 colcon build --packages-select robot_rci_gui
 source install/setup.bash
-
-🚧 Développement futur
-Fonctionnalités prévues
+'''
+***🚧 Développement futur
+**Fonctionnalités prévues
 
     Planification de trajectoire avec évitement d'obstacles
 
@@ -347,7 +352,7 @@ Fonctionnalités prévues
 
     Export des trajectoires en format CSV/JSON
 
-Améliorations techniques
+**Améliorations techniques
 
     Optimisation du calcul de l'espace de travail (GPU)
 
@@ -357,7 +362,7 @@ Améliorations techniques
 
     Contrôle en effort (force feedback)
 
-🤝 Contribuer
+**🤝 Contribuer
 
 Les contributions sont les bienvenues ! Pour contribuer :
 
@@ -371,16 +376,18 @@ Les contributions sont les bienvenues ! Pour contribuer :
 
     Ouvrez une Pull Request
 
-📄 Licence
+**📄 Licence
 
 Ce projet est sous licence MIT - voir le fichier LICENSE pour plus de détails.
-👤 Auteur
+
+**👤 Auteur
 
 Étudiant Polytech Lille
 
     Spécialisation : Systèmes embarqués, énergie et industrie 4.0
 
-    Formation : Ingénieur en Génie Électrique et Informatique Industrielle
+    Formation : Ingénieur en Systèmes embarqués et génie
+    Électrique
 
     GitHub : @edp1806
 
@@ -388,7 +395,7 @@ Ce projet est sous licence MIT - voir le fichier LICENSE pour plus de détails.
 
 🙏 Remerciements
 
-    Polytech Lille - Département Génie Électrique et Informatique Industrielle
+    Polytech Lille - Département SE
 
     Communauté ROS2 - Documentation et outils exceptionnels
 
