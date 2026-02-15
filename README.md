@@ -287,12 +287,14 @@ Erreur No module named 'tkinter'
 '''bash
 sudo apt install python3-tk
 '''
+
 RViz ne montre pas le robot
 
     Vérifiez que robot_state_publisher tourne :
 
-    bash
+    '''bash
     ros2 node list
+    '''
 
     Ajoutez manuellement : Add → RobotModel
 
