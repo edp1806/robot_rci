@@ -1,425 +1,306 @@
-# 🤖 Robot RCI - Contrôle et Visualisation
+# Robot RCI — Simulateur d'un bras manipulateur 4 DDL sous ROS 2
 
-![ROS2](https://img.shields.io/badge/ROS2-Jazzy-blue)
-![Python](https://img.shields.io/badge/Python-3.12-green)
-![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-orange)
-![License](https://img.shields.io/badge/License-MIT-yellow)
-![Status](https://img.shields.io/badge/Status-Active-success)
+[![ROS 2 Lyrical](https://img.shields.io/badge/ROS%202-Lyrical%20Luth-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/lyrical/)
+[![Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04%20LTS-E95420?logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![Python 3](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Tests pytest](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)](src/robot_rci_gui/test/test_kinematics.py)
+[![Licence MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
-Interface graphique complète de type industriel pour le contrôle d'un robot SCARA 4-DOF avec modèles géométriques direct (MGD) et inverse (MGI), visualisation RViz 3D, et trajectoires automatiques.
+Station de contrôle pour un bras manipulateur porte-outil à 4 degrés de liberté (3 rotations + 1 translation) : pilotage articulaire par le modèle géométrique direct (MGD), pilotage cartésien par le modèle géométrique inverse (MGI), affichage de l'espace de travail, suivi de quatre trajectoires et validation croisée des deux modèles, le tout visualisé en 3D dans RViz.
 
-![Interface Screenshot](docs/screenshot.png)
+Le projet est né d'un projet de robotique de 4e année (SE4) à Polytech Lille, d'abord réalisé sous MATLAB, puis entièrement repris sous ROS 2.
 
----
+![Panneau de contrôle et RViz](docs/images/apercu.png)
 
-## 📋 Table des matières
+## Sommaire
 
-- [Caractéristiques](#-caractéristiques)
-- [Prérequis](#-prérequis)
-- [Installation](#-installation)
-- [Utilisation](#-utilisation)
-- [Architecture du robot](#-architecture-du-robot)
-- [Modèles cinématiques](#-modèles-cinématiques)
-- [Trajectoires disponibles](#-trajectoires-disponibles)
-- [Structure du projet](#-structure-du-projet)
-- [Dépannage](#-dépannage)
-- [Développement futur](#-développement-futur)
-- [Auteur](#-auteur)
+- [Fonctionnalités](#fonctionnalités)
+- [Le robot](#le-robot)
+- [Modèles géométriques](#modèles-géométriques)
+- [Résultats vérifiés](#résultats-vérifiés)
+- [Installation](#installation)
+- [Utilisation](#utilisation)
+- [Architecture ROS 2](#architecture-ros-2)
+- [Version MATLAB d'origine](#version-matlab-dorigine)
+- [Structure du dépôt](#structure-du-dépôt)
+- [Dépannage](#dépannage)
+- [Limites connues et pistes](#limites-connues-et-pistes)
+- [Auteur et crédits](#auteur-et-crédits)
 
----
+## Fonctionnalités
 
-## ✨ Caractéristiques
+| Fonction | Ce qu'elle fait |
+|---|---|
+| **Contrôle articulaire (MGD)** | Quatre curseurs J1 à J4. La position cartésienne de l'effecteur est recalculée en direct. |
+| **Contrôle cartésien (MGI)** | Trois curseurs X, Y, Z. Les angles articulaires sont recalculés, avec saturation aux butées. |
+| **Espace de travail** | Nuage de 24 000 points atteignables (grille 40 × 30 × 20 sur q1, q2, q4), affiché dans RViz. |
+| **Trajectoires** | Cercle, carré, vague sinusoïdale et lemniscate, tracées dans RViz et suivies en boucle par l'effecteur. |
+| **Validation MGD ↔ MGI** | Enchaîne MGD → MGI → MGD sur une configuration test et affiche l'erreur de position. |
+| **Interface** | Panneau Tkinter sombre de type pupitre industriel, avec afficheurs numériques. |
 
-### 🎮 Interface de contrôle complète
+| Espace de travail | Trajectoire en cours |
+|---|---|
+| ![Espace de travail](docs/images/espace_travail.png) | ![Trajectoire](docs/images/trajectoire.png) |
 
-- **Contrôle articulaire (MGD)** : Contrôle direct des 4 articulations (q₁, q₂, q₃, q₄)
-- **Contrôle cartésien (MGI)** : Contrôle de la position de l'effecteur (X, Y, Z)
-- **Mise à jour temps réel** : Synchronisation bidirectionnelle entre espaces articulaire et cartésien
-- **Design industriel moderne** : Interface dark mode professionnelle avec affichage digital
+## Le robot
 
-### 📊 Visualisation avancée
+Bras porte-outil de type **RRRP** : une rotation verticale à la base, une épaule qui bascule autour d'un axe horizontal au bout d'un long bras, une rotation de l'outil sur lui-même et un axe télescopique.
 
-- **RViz intégré** : Visualisation 3D du robot avec modèle URDF complet
-- **Espace de travail** : Calcul et affichage du volume atteignable (24,000 points)
-- **Trajectoires en temps réel** : Visualisation des mouvements avec marqueurs colorés
-- **Publication continue** : Maintien de position via timer ROS2 (10 Hz)
+```mermaid
+flowchart TD
+    W([world]) -->|fixe| B[base_link]
+    B -->|"J1 : rotation Z<br/>±110°"| V[link1_vertical]
+    V -->|"fixe<br/>colonne 0,30 m"| H[link1_horizontal]
+    H -->|"J2 : rotation X<br/>0 à 80°<br/>au bout du bras a = 1,85 m"| P[link2_pivot]
+    P -->|"J3 : rotation Z<br/>0 à 360°"| T[link3_outer]
+    T -->|"fixe<br/>b = 0,35 m"| A[link3_anchor]
+    A -->|"J4 : translation Z<br/>0 à 15 cm"| G[link4_inner_green]
+    G -->|"fixe<br/>tige 0,15 m"| E([end_effector])
+```
 
-### 🔄 Trajectoires automatiques
+*Chaîne cinématique de l'URDF. Les liens purement visuels (sphère de J1, tube bleu du télescope) sont omis.*
 
-- ⭕ **Cercle** : Trajectoire circulaire horizontale
-- ⬛ **Carré** : Trajectoire carrée avec coins précis
-- 〰️ **Vague** : Onde sinusoïdale 2D
-- ∞ **Lemniscate** : Symbole infini (courbe en 8)
+| Paramètre | Valeur | Rôle |
+|---|---|---|
+| `a` | 1,85 m | Longueur du bras horizontal, entre l'axe de J1 et l'épaule J2 |
+| `b` | 0,35 m | Longueur du tube porte-outil au-dessus de J3 |
+| Hauteur de l'épaule | 0,50 m | Socle de 0,20 m + colonne de 0,30 m |
+| Partie télescopique | 0,15 m + q4 | Longueur fixe de la tige + course de J4 |
 
-### ✅ Validation
+| Articulation | Type | Axe | Butées |
+|---|---|---|---|
+| J1 | Rotation | Z | −110° à +110° |
+| J2 | Rotation | X | 0° à +80° |
+| J3 | Rotation | Z (axe de l'outil) | 0° à 360° |
+| J4 | Translation | Z (axe de l'outil) | 0 à 15 cm |
 
-- **MGD ↔ MGI** : Vérification de cohérence avec précision < 1 μm
-- **Limites articulaires** : Respect automatique des butées mécaniques
-- **Espace atteignable** : Visualisation des zones accessibles
+J3 fait tourner l'outil autour de son propre axe : elle change son orientation, pas la position de l'effecteur. C'est pourquoi le MGI la fixe à 0.
 
----
+## Modèles géométriques
 
-## 🔧 Prérequis
+Notons $L = b + q_4 + 0{,}15$ la distance entre l'épaule et l'effecteur.
 
-### Système d'exploitation
+**Modèle géométrique direct (MGD)**
 
-- **Ubuntu 24.04 LTS** (recommandé)
-- **ROS2 Jazzy Jalisco**
+```math
+\begin{aligned}
+X &= \bigl(a + L\sin q_2\bigr)\sin q_1 \\
+Y &= -\bigl(a + L\sin q_2\bigr)\cos q_1 \\
+Z &= L\cos q_2 + 0{,}5
+\end{aligned}
+```
 
-### Dépendances
+**Modèle géométrique inverse (MGI)**, avec $r = \sqrt{X^2 + Y^2}$ :
+
+```math
+\begin{aligned}
+q_1 &= \operatorname{atan2}(X,\,-Y) \\
+q_2 &= \operatorname{atan2}(r - a,\; Z - 0{,}5) \\
+q_3 &= 0 \\
+q_4 &= \sqrt{(r - a)^2 + (Z - 0{,}5)^2} \;-\; b - 0{,}15
+\end{aligned}
+```
+
+Les valeurs obtenues sont ensuite saturées aux butées articulaires. Pour qu'une position soit atteignable sans saturation à la hauteur des trajectoires (Z = 1,0 m), il faut $a \le r \le a + 0{,}415$ m : la limite basse vient de $q_2 \ge 0$, la limite haute de $q_4 \le 15$ cm. La fonction `is_reachable()` du panneau fait ce test et signale dans le terminal toute trajectoire qui sortirait de cette zone.
+
+## Résultats vérifiés
+
+Ces chiffres viennent des tests de [`src/robot_rci_gui/test/test_kinematics.py`](src/robot_rci_gui/test/test_kinematics.py), qui appellent directement les méthodes du panneau de contrôle (voir [Lancer les tests](#lancer-les-tests)).
+
+| Vérification | Résultat |
+|---|---|
+| Bouton de validation, q = (30°, 40°, 0, 12 cm) | erreur de position ≈ 2,5 × 10⁻¹⁶ m |
+| Aller-retour MGD → MGI → MGD sur les 24 000 configurations | erreur maximale ≈ 5,7 × 10⁻¹⁶ m |
+| Bornes de l'espace de travail | X ∈ [−2,49 ; 2,49] m, Y ∈ [−2,49 ; 0,85] m, Z ∈ [0,59 ; 1,15] m |
+| Trajectoires | les 260 points des 4 trajectoires sont atteignables, et l'effecteur passe exactement dessus |
+
+Les erreurs sont de l'ordre de la précision machine en double précision : sur tout l'espace articulaire testé, le MGI est l'inverse exact du MGD.
+
+## Installation
+
+Testé sous **Ubuntu 26.04 LTS** avec **ROS 2 Lyrical Luth**.
+
+**1. Dépendances**
 
 ```bash
 sudo apt update
 sudo apt install -y \
-    ros-jazzy-desktop \
-    ros-jazzy-xacro \
-    ros-jazzy-joint-state-publisher \
-    ros-jazzy-joint-state-publisher-gui \
-    ros-jazzy-robot-state-publisher \
-    ros-jazzy-rviz2 \
-    python3-pip \
-    python3-tk
+    ros-lyrical-desktop \
+    ros-lyrical-xacro \
+    ros-lyrical-robot-state-publisher \
+    ros-lyrical-rviz2 \
+    python3-colcon-common-extensions \
+    python3-tk \
+    python3-numpy \
+    python3-pytest
 ```
 
-## 📥 Installation
-# 1. Cloner le repository
+**2. Récupération et compilation**
 
 ```bash
-cd ~/Bureau
+mkdir -p ~/ros2_ws && cd ~/ros2_ws
 git clone https://github.com/edp1806/robot_rci.git robot_rci_ws
 cd robot_rci_ws
-```
-
-# 2. Compiler le workspace
-
-```bash
+source /opt/ros/lyrical/setup.bash
 colcon build
 source install/setup.bash
 ```
 
-# 3. Vérifier l'installation
+**3. Vérification**
 
 ```bash
 ros2 pkg list | grep robot_rci
+# robot_rci_control
+# robot_rci_description
+# robot_rci_gui
 ```
 
-Vous devriez voir :
+## Utilisation
 
-text
-robot_rci_description
-robot_rci_gui
-
-***🚀 Utilisation
-**Lancement complet
-
-# Terminal 1 : Lancer RViz et le modèle URDF
+**Tout lancer d'un coup** (robot_state_publisher, RViz et panneau de contrôle) :
 
 ```bash
-cd ~/Bureau/robot_rci_ws
-source install/setup.bash
-ros2 launch robot_rci_description display.launch.py
+ros2 launch robot_rci_description robot_complete.launch.py
 ```
-# Terminal 2 : Lancer l'interface de contrôle
+
+ou, de façon équivalente, `./scripts/start_robot_rci.sh`.
+
+RViz s'ouvre avec sa configuration : repère fixe `world`, modèle du robot, repères TF, et les displays *Workspace* et *Trajectory* déjà branchés sur `/workspace_marker` et `/trajectory_marker`. Il n'y a rien à ajouter à la main.
+
+**Dans le panneau de contrôle**
+
+| Action | Effet |
+|---|---|
+| Curseurs J1 à J4 | Pilotage articulaire. X, Y et Z se mettent à jour. |
+| Curseurs X, Y, Z | Pilotage cartésien. Les angles se mettent à jour. |
+| `WORKSPACE DISPLAY` | Calcule et affiche le nuage de points (quelques secondes). Un second clic le masque. |
+| Choix de trajectoire puis `START TRAJECTORY` | Trace la courbe et la fait suivre en boucle. `STOP TRAJECTORY` arrête et efface. |
+| `VALIDATE MGD ↔ MGI` | Affiche l'erreur de l'aller-retour sur la configuration test. |
+
+**Trajectoires disponibles**, toutes horizontales à Z = 1,0 m et centrées sur (−1,727 ; −1,118) m :
+
+| Trajectoire | Paramètres | Points | Couleur |
+|---|---|---|---|
+| Cercle | rayon 0,20 m | 60 | vert |
+| Carré | côté 0,28 m | 4 × 15 | bleu |
+| Vague | amplitude 0,15 m sur 0,40 m, 2 périodes | 60 | orange |
+| Lemniscate | échelle 0,15 m | 80 | jaune |
+
+L'effecteur avance d'un point toutes les 50 ms. Le panneau publie les positions articulaires sur `/joint_states` à 10 Hz, et republie la courbe toutes les secondes tant que la trajectoire tourne.
+
+**Autres lancements**
+
+| Commande | Usage |
+|---|---|
+| `ros2 launch robot_rci_description display.launch.py` | RViz et le modèle seuls, sans panneau |
+| `ros2 launch robot_rci_description foxglove.launch.py` | Visualisation dans [Foxglove](https://foxglove.dev) au lieu de RViz (`sudo apt install ros-lyrical-foxglove-bridge`, puis connexion à `ws://localhost:8765`) |
+| `./scripts/start_rviz_vnc.sh` | RViz dans un serveur X virtuel affiché par VNC, en dernier recours si l'affichage clignote encore (voir [Dépannage](#dépannage)) |
+
+### Lancer les tests
 
 ```bash
-cd ~/Bureau/robot_rci_ws
 source install/setup.bash
-ros2 run robot_rci_gui control_panel
+python3 -m pytest src/robot_rci_gui/test -v
 ```
-# Configuration RViz
 
-    Fixed Frame : world
+## Architecture ROS 2
 
-    Ajouter les éléments :
-
-        RobotModel : Add → RobotModel
-
-        Workspace : Add → By topic → /workspace_marker → Marker
-
-        Trajectoire : Add → By topic → /trajectory_marker → Marker
-
-### Utilisation de l'interface
-## Contrôle articulaire (MGD)
-
-    Déplacez les curseurs J1, J2, J3, J4
-
-    La position cartésienne (X, Y, Z) se met à jour automatiquement
-
-## Contrôle cartésien (MGI)
-
-    Déplacez les curseurs X, Y, Z
-
-    Les angles articulaires se calculent automatiquement
-
-## Affichage de l'espace de travail
-
-    Cliquez sur "WORKSPACE DISPLAY"
-
-    Attendre 3-5 secondes (calcul de 24,000 points)
-
-    L'espace apparaît en bleu dans RViz
-
-## Exécution de trajectoires
-
-    Sélectionnez un type : Circle, Square, Wave ou Lemniscate
-
-    Cliquez sur "START TRAJECTORY"
-
-    Le robot suit la trajectoire en boucle
-
-    Cliquez sur "STOP TRAJECTORY" pour arrêter
-
-## Validation des modèles
-
-    Cliquez sur "VALIDATE MGD ↔ MGI"
-
-    Une fenêtre affiche l'erreur de précision (doit être < 1 μm)
-
-### 🦾 Architecture du robot
-Paramètres géométriques
-Paramètre	Valeur	Description
-a	1.85 m	Longueur du bras principal
-b	0.35 m	Décalage de l'outil
-Base height	0.50 m	Hauteur de la base
-Max extension	0.15 m	Extension maximale prismatique (J4)
-Limites articulaires
-Joint	Type	Limites	Unité
-J1	Revolute	-110° à +110°	deg
-J2	Revolute	0° à +80°	deg
-J3	Revolute	0° à +360°	deg
-J4	Prismatic	0 à 15	cm
-DOF (Degrés de liberté)
-
-Configuration : 3R + 1P (3 rotations + 1 translation)
-
-### 📐 Modèles cinématiques
-## Modèle Géométrique Direct (MGD)
-
-Calcul de la position cartésienne P(X, Y, Z) à partir des angles articulaires q = [q₁, q₂, q₃, q₄] :
-
-text
-L_total = b + q₄ + 0.15
-
-X = (a + L_total × sin(q₂)) × sin(q₁)
-Y = -(a + L_total × sin(q₂)) × cos(q₁)
-Z = L_total × cos(q₂) + 0.5
-
-## Modèle Géométrique Inverse (MGI)
-
-Calcul des angles articulaires q à partir de la position P(X, Y, Z) :
-
-text
-q₁ = arctan2(X, -Y)
-q₂ = arctan2(√(X² + Y²) - a, Z - 0.5)
-q₃ = 0
-q₄ = √((√(X² + Y²) - a)² + (Z - 0.5)²) - b - 0.15
-
-Avec respect des limites articulaires via clipping.
-## Validation
-
-    Précision MGD ↔ MGI : < 1 μm (10⁻⁶ m)
-
-    Méthode : Test de cohérence avec erreur euclidienne
-
-### 🎯 Trajectoires disponibles
-Trajectoire	Description	Paramètres clés	Couleur
-⭕ Cercle	Cercle horizontal	Rayon: 0.20 m, 60 points	🟢 Vert
-⬛ Carré	Carré horizontal	Côté: 0.30 m, 4×15 points	🔵 Bleu
-〰️ Vague	Onde sinusoïdale 2D	Amplitude: 0.15 m, 2 périodes	🟠 Orange
-∞ Lemniscate	Symbole infini	Échelle: 0.15 m, 80 points	🟡 Jaune
-Centre des trajectoires
-
-Toutes les trajectoires sont centrées sur :
-
-    X : -1.70 m
-
-    Y : -1.10 m
-
-    Z : 1.00 m
-
-Fréquence de suivi
-
-    Taux de rafraîchissement : 20 Hz (50 ms par point)
-
-    Republication marqueurs : 1 Hz
-
-## 📁 Structure du projet
+```mermaid
+flowchart LR
+    GUI["robot_control_gui<br/>(panneau Tkinter)"] -->|"/joint_states<br/>10 Hz"| RSP[robot_state_publisher]
+    RSP -->|"/tf, /tf_static"| RVIZ[RViz2]
+    RSP -->|"/robot_description"| RVIZ
+    GUI -->|/workspace_marker| RVIZ
+    GUI -->|/trajectory_marker| RVIZ
 ```
-text
+
+| Package | Rôle |
+|---|---|
+| `robot_rci_description` | URDF/xacro du robot, configuration RViz, fichiers de lancement |
+| `robot_rci_gui` | Panneau de contrôle : MGD, MGI, espace de travail, trajectoires, validation, tests |
+| `robot_rci_control` | Nœuds séparés (MGD, MGI, trajectoire, validation, espace de travail), voir [Limites connues](#limites-connues-et-pistes) |
+
+## Version MATLAB d'origine
+
+Le dossier [`matlab/`](matlab/) contient la première version du projet, réalisée en binôme avec **Badria El-Ghoche** dans le cadre du projet RCI de SE4 (octobre 2025) :
+
+- [`Projet_RCI.m`](matlab/Projet_RCI.m) : simulateur MATLAB avec modèle `rigidBodyTree`, curseurs articulaires et cartésiens, validation croisée, suivi d'un cercle et tracé des signaux articulaires. Il nécessite la *Robotics System Toolbox*.
+- [`Rapport Projet_RCI.pdf`](matlab/Rapport%20Projet_RCI.pdf) : rapport du projet (modélisation, MGD, MGI, validation, trajectoire).
+
+La version ROS 2 reprend les mêmes paramètres `a` et `b` et la même grille d'espace de travail, et y ajoute un modèle 3D plus détaillé (colonne de 0,30 m et tige télescopique de 0,15 m), trois trajectoires supplémentaires et l'interface Tkinter.
+
+![Simulateur MATLAB](docs/images/matlab.jpg)
+
+## Structure du dépôt
+
+```text
 robot_rci_ws/
 ├── src/
-│   ├── robot_rci_description/          # Description URDF du robot
-│   │   ├── urdf/
-│   │   │   └── robot_rci.urdf.xacro   # Modèle 3D complet du robot
-│   │   ├── meshes/                     # Modèles 3D (STL/DAE)
-│   │   │   ├── base.stl
-│   │   │   ├── link1.stl
-│   │   │   ├── link2.stl
-│   │   │   └── tool.stl
-│   │   ├── launch/
-│   │   │   └── display.launch.py      # Lancement RViz + URDF
-│   │   ├── rviz/
-│   │   │   └── robot_config.rviz      # Configuration RViz sauvegardée
-│   │   ├── package.xml
-│   │   └── CMakeLists.txt
-│   │
-│   └── robot_rci_gui/                  # Interface de contrôle
-│       ├── robot_rci_gui/
-│       │   ├── __init__.py
-│       │   └── control_panel.py       # Interface graphique principale
-│       ├── setup.py
-│       ├── setup.cfg
-│       └── package.xml
-│
-├── build/                               # Fichiers de compilation (gitignore)
-├── install/                             # Fichiers installés (gitignore)
-├── log/                                 # Logs ROS2 (gitignore)
-├── .gitignore
+│   ├── robot_rci_description/       # Modèle et visualisation
+│   │   ├── urdf/robot_rci.urdf.xacro
+│   │   ├── config/rviz_config.rviz
+│   │   └── launch/
+│   │       ├── display.launch.py         # robot_state_publisher + RViz
+│   │       ├── robot_complete.launch.py  # display + panneau de contrôle
+│   │       ├── foxglove.launch.py        # alternative à RViz
+│   │       └── gazebo.launch.py          # non fonctionnel sous Lyrical
+│   ├── robot_rci_gui/               # Panneau de contrôle
+│   │   ├── robot_rci_gui/control_panel.py
+│   │   └── test/test_kinematics.py
+│   └── robot_rci_control/           # Nœuds séparés (non vérifiés sous Lyrical)
+├── matlab/                          # Version MATLAB d'origine
+├── scripts/                         # Scripts de lancement
+├── docs/images/                     # Captures du README
+├── LICENSE
 └── README.md
 ```
 
-### 🔍 Dépannage
-Le robot revient à sa position initiale dans RViz
+## Dépannage
 
-➡️ Normal ! Le timer ROS2 publie continuellement les joint_states pour maintenir la position. C'est un comportement attendu.
-Erreur No module named 'tkinter'
+**La vue 3D de RViz clignote (une image sur deux est noire).**
+Ce problème se produit sous GNOME Wayland avec une mise à l'échelle fractionnaire de l'écran : RViz2 passe par XWayland, et le scaling HiDPI de Qt fait clignoter sa fenêtre de rendu, même en rendu logiciel. `display.launch.py` lance donc RViz avec `QT_QPA_PLATFORM=xcb` et le scaling Qt désactivé. C'est actif par défaut. Pour le désactiver, par exemple dans une session X11 sur un écran HiDPI où RViz paraîtrait trop petit :
 
-'''bash
-sudo apt install python3-tk
-'''
+```bash
+ros2 launch robot_rci_description robot_complete.launch.py qt_scaling_fix:=false
+```
 
-RViz ne montre pas le robot
+Si l'affichage clignote encore, `./scripts/start_rviz_vnc.sh` lance RViz dans un serveur X indépendant (Xvnc, accessible uniquement en local) et l'affiche dans une fenêtre VNC. Il faut d'abord installer `tigervnc-standalone-server` et `tigervnc-viewer`.
 
-    Vérifiez que robot_state_publisher tourne :
+**`Package 'robot_rci_description' not found`.**
+Le workspace n'est pas sourcé dans ce terminal : `source install/setup.bash`.
 
-    '''bash
-    ros2 node list
-    '''
+**Le robot n'apparaît pas dans RViz (`RobotModel: Status Error`).**
+Vérifie que `robot_state_publisher` tourne (`ros2 node list`). La configuration fournie lit `/robot_description` en *Transient Local*, ce qui permet de recevoir le modèle même si RViz démarre après le publisher.
 
-    Ajoutez manuellement : Add → RobotModel
+**Le robot ne bouge pas, ou le TF est en warning.**
+Rien ne publie sur `/joint_states` : lance le panneau de contrôle (`robot_complete.launch.py`), pas `display.launch.py` seul.
 
-    Changez Fixed Frame en world
+**`apt` renvoie `404 Not Found` sur un paquet ROS.**
+La liste des paquets date d'avant une synchronisation du dépôt ROS : `sudo apt update`, puis relance l'installation.
 
-L'espace de travail n'apparaît pas
+## Limites connues et pistes
 
-    Attendez le calcul complet (24,000 points = ~3-5 secondes)
+**Limites actuelles**
 
-    Dans RViz : Add → By topic → /workspace_marker → Marker
+- `gazebo.launch.py` dépend de `gazebo_ros` (Gazebo Classic), qui n'existe plus sous ROS 2 Lyrical. Ce fichier de lancement ne fonctionne pas en l'état.
+- Les nœuds du package `robot_rci_control` (`control.launch.py`, `trajectory.launch.py`) n'ont pas été vérifiés depuis le passage à Lyrical. Le panneau de contrôle n'en dépend pas.
+- Le bouton de validation ne teste qu'une configuration. La validation sur tout l'espace de travail se fait avec les tests pytest.
+- Le suivi de trajectoire est purement géométrique : pas de profil de vitesse, pas de dynamique.
 
-    Vérifiez les logs dans le terminal du control_panel
+**Pistes**
 
-La trajectoire ne s'affiche pas dans RViz
+- Simulation physique avec Gazebo Sim (`ros_gz`)
+- Planification avec MoveIt 2
+- Jacobienne et détection des singularités
+- Interpolation par splines et profils de vitesse
+- Enregistrement et rejeu de trajectoires personnalisées
 
-Dans RViz : Add → By topic → /trajectory_marker → Marker
-Erreur de compilation colcon build
+## Auteur et crédits
 
-'''bash
-# Nettoyer le workspace
-rm -rf build/ install/ log/
+**Edouard Perdrix**, élève ingénieur en Systèmes Embarqués à Polytech Lille ([@edp1806](https://github.com/edp1806)).
 
-# Sourcer ROS2
-source /opt/ros/jazzy/setup.bash
+- Version MATLAB : réalisée en binôme avec Badria El-Ghoche (projet RCI, SE4, Polytech Lille)
+- Version ROS 2 : Edouard Perdrix
+- Merci à l'équipe pédagogique du département SE de Polytech Lille, et à la communauté ROS 2
 
-# Recompiler
-colcon build
-'''
-Le GUI ne se lance pas
-
-'''bash
-# Vérifier l'installation du package
-ros2 pkg list | grep robot_rci_gui
-
-# Recompiler si nécessaire
-cd ~/Bureau/robot_rci_ws
-colcon build --packages-select robot_rci_gui
-source install/setup.bash
-'''
-### 🚧 Développement futur
-## Fonctionnalités prévues
-
-    Planification de trajectoire avec évitement d'obstacles
-
-    Support de la cinématique différentielle (jacobienne)
-
-    Interface web avec ROS2 Bridge
-
-    Contrôle par joystick/gamepad
-
-    Enregistrement et replay de trajectoires personnalisées
-
-    Intégration MoveIt2 pour planification avancée
-
-    Simulation Gazebo avec physique réaliste
-
-    Mode "teach pendant" (apprentissage par démonstration)
-
-    Export des trajectoires en format CSV/JSON
-
-## Améliorations techniques
-
-    Optimisation du calcul de l'espace de travail (GPU)
-
-    Interpolation de trajectoires (splines cubiques)
-
-    Gestion de singularités cinématiques
-
-    Contrôle en effort (force feedback)
-
-## 🤝 Contribuer
-
-Les contributions sont les bienvenues ! Pour contribuer :
-
-    Forkez le projet
-
-    Créez une branche (git checkout -b feature/AmazingFeature)
-
-    Committez vos changements (git commit -m 'Add some AmazingFeature')
-
-    Pushez vers la branche (git push origin feature/AmazingFeature)
-
-    Ouvrez une Pull Request
-
-## 📄 Licence
-
-Ce projet est sous licence MIT - voir le fichier LICENSE pour plus de détails.
-
-## 👤 Auteur
-
-Étudiant Polytech Lille
-
-    Spécialisation : Systèmes embarqués, énergie et industrie 4.0
-
-    Formation : Ingénieur en Systèmes embarqués et génie
-    Électrique
-
-    GitHub : @edp1806
-
-    Projet : Robot RCI - Station de contrôle industrielle
-
-🙏 Remerciements
-
-    Polytech Lille - Département SE
-
-    Communauté ROS2 - Documentation et outils exceptionnels
-
-    Open Robotics - Développement de ROS2 et RViz
-
-    Équipe pédagogique - Encadrement et support technique
-
-📊 Statistiques du projet
-
-    Lignes de code Python : ~850
-
-    Espace de travail : 24,000 points calculés
-
-    Précision cinématique : < 1 μm
-
-    Taux de rafraîchissement GUI : 10 Hz
-
-    Fréquence trajectoires : 20 Hz
-
-<div align="center">
-
-⭐ Si ce projet vous aide, n'hésitez pas à lui donner une étoile ! ⭐
-Made with ❤️  at Polytech Lille
-</div>
+Ce projet est distribué sous licence [MIT](LICENSE).

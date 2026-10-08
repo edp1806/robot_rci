@@ -10,13 +10,14 @@ echo -e "${BLUE}=================================================="
 echo -e "🤖 DÉMARRAGE ROBOT RCI"
 echo -e "==================================================${NC}\n"
 
-# Source ROS2 Jazzy (CORRIGÉ)
-echo -e "${GREEN}📦 Chargement de ROS2 Jazzy...${NC}"
-source /opt/ros/jazzy/setup.bash
+# Source ROS2 Lyrical
+echo -e "${GREEN}📦 Chargement de ROS2 Lyrical...${NC}"
+source /opt/ros/lyrical/setup.bash
 
 # Source workspace
 echo -e "${GREEN}📦 Chargement du workspace...${NC}"
-source ~/Bureau/robot_rci_ws/install/setup.bash
+WS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${WS_DIR}/install/setup.bash"
 
 # Lancement
 echo -e "${GREEN}🚀 Lancement de RViz + GUI...${NC}\n"

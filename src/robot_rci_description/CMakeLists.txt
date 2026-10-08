@@ -13,7 +13,6 @@ install(DIRECTORY
   urdf
   launch
   config
-  meshes
   DESTINATION share/${PROJECT_NAME}
 )
 

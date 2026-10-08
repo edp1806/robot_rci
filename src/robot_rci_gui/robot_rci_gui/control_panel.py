@@ -16,6 +16,13 @@ import datetime
 class RobotControlGUI(Node):
     """Interface graphique complète pour contrôler le robot RCI"""
 
+    # Centre commun des trajectoires (m). À Z = 1.0 m, l'effecteur n'atteint
+    # que les points à une distance r de l'axe J1 telle que a <= r <= a + 0.415
+    # (butées q2 >= 0 et q4 <= 15 cm). Ce centre, placé à r = 2.0575 m dans la
+    # même direction que l'ancien (-1.70, -1.10), garde les 4 trajectoires
+    # entièrement atteignables avec ~7.7 mm de marge.
+    traj_center = (-1.727, -1.118, 1.00)
+
     def __init__(self):
         super().__init__('robot_control_gui')
 
@@ -54,6 +61,16 @@ class RobotControlGUI(Node):
         Y = -(self.a + L_total * np.sin(q2)) * np.cos(q1)
         Z = L_total * np.cos(q2) + 0.5
         return np.array([X, Y, Z])
+
+    def is_reachable(self, position):
+        """Vrai si la position est atteignable sans saturer les butées articulaires"""
+        X, Y, Z = position
+        r = np.sqrt(X**2 + Y**2)
+        q1 = np.arctan2(X, -Y)
+        q2 = np.arctan2(r - self.a, Z - 0.5)
+        q4 = np.sqrt((r - self.a)**2 + (Z - 0.5)**2) - self.b - 0.15
+        return (abs(q1) <= 110*np.pi/180 and 0 <= q2 <= 80*np.pi/180
+                and 0 <= q4 <= 0.15)
 
     def mgi(self, position):
         """Modèle Géométrique Inverse"""
@@ -265,6 +282,13 @@ class RobotControlGUI(Node):
             X, Y, Z = self.generate_circle()
             color = (0.0, 1.0, 0.0)
 
+        # Signaler les points hors d'atteinte (ils seraient saturés par le MGI)
+        n_out = sum(not self.is_reachable(p) for p in zip(X, Y, Z))
+        if n_out:
+            self.get_logger().warning(
+                f'⚠️ {n_out}/{len(X)} points de la trajectoire {self.trajectory_type} '
+                f'sont hors d\'atteinte : l\'effecteur s\'écartera de la courbe')
+
         # Publier la trajectoire plusieurs fois
         for _ in range(5):
             self.publish_trajectory_marker(X, Y, Z, color)
@@ -283,7 +307,7 @@ class RobotControlGUI(Node):
         while self.trajectory_running:
             target_position = [X[i], Y[i], Z[i]]
 
-            # Vérifier si la position est atteignable
+            # MGI (saturé aux butées si le point est hors d'atteinte)
             q = self.mgi(target_position)
 
             # Mise à jour du GUI
@@ -299,9 +323,7 @@ class RobotControlGUI(Node):
 
     def generate_circle(self):
         """Génère un cercle horizontal"""
-        center_x = -1.70
-        center_y = -1.10
-        center_z = 1.00
+        center_x, center_y, center_z = self.traj_center
         radius = 0.20
         num_points = 60
 
@@ -314,10 +336,8 @@ class RobotControlGUI(Node):
 
     def generate_square(self):
         """Génère un carré horizontal"""
-        center_x = -1.70
-        center_y = -1.10
-        center_z = 1.00
-        side = 0.30
+        center_x, center_y, center_z = self.traj_center
+        side = 0.28   # 0.30 m dépassait la bande atteignable (largeur 0.415 m)
         points_per_side = 15
 
         X, Y, Z = [], [], []
@@ -354,10 +374,9 @@ class RobotControlGUI(Node):
 
     def generate_wave(self):
         """Génère une trajectoire en vague sinusoïdale"""
-        x_start = -1.90
-        x_end = -1.50
-        y_center = -1.10
-        z_center = 1.00
+        x_c, y_center, z_center = self.traj_center
+        x_start = x_c - 0.20
+        x_end = x_c + 0.20
         amplitude = 0.15
         wavelength = 2
         num_points = 60
@@ -371,9 +390,7 @@ class RobotControlGUI(Node):
 
     def generate_lemniscate(self):
         """Génère une lemniscate (symbole infini ∞)"""
-        center_x = -1.70
-        center_y = -1.10
-        center_z = 1.00
+        center_x, center_y, center_z = self.traj_center
         scale = 0.15
         num_points = 80
 
@@ -691,7 +708,7 @@ class RobotControlGUI(Node):
 
         tk.Label(limits_frame, text="WORKSPACE LIMITS", font=("Consolas", 8, "bold"),
                 bg="#1a1a1a", fg="#888888").pack()
-        tk.Label(limits_frame, text="X: [-2.34, 2.34] | Y: [-2.34, 0.80] | Z: [0.71, 1.15]",
+        tk.Label(limits_frame, text="X: [-2.49, 2.49] | Y: [-2.49, 0.85] | Z: [0.59, 1.15]",
                 font=("Consolas", 7), bg="#1a1a1a", fg="#666666").pack()
 
         # ========================================
@@ -805,7 +822,7 @@ STATUS: OPERATIONAL
         footer.pack(fill="x", side="bottom")
         footer.pack_propagate(False)
 
-        tk.Label(footer, text="ROS2 Jazzy | URDF Model Active | RViz Connected",
+        tk.Label(footer, text="ROS2 Lyrical | /joint_states @ 10 Hz",
                 font=("Consolas", 8), bg="#2b2b2b", fg="#888888").pack(side="left", padx=10)
 
         time_label = tk.Label(footer, text=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
